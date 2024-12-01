@@ -15,11 +15,13 @@
 	"environment" : {
 
 		"PKG_CONFIG_PATH" : "{buildDir}/lib/pkgconfig",
+		"DYLD_LIBRARY_PATH": "/usr/local/opt/zlib/lib:{buildDir}/lib",
+		"LDFLAGS": "-L/usr/local/opt/zlib/lib -Wl,-rpath,/usr/local/opt/zlib/lib",
+    	"CPPFLAGS": "-I/usr/local/opt/zlib/include",
 
 	},
 
 	"commands" : [
-
 		"./configure"
 			" -prefix {buildDir} "
 			" -plugindir {buildDir}/qt/plugins"
@@ -41,6 +43,7 @@
 			" -no-icu"
 			" -qt-pcre"
 			" -qt-harfbuzz"
+			" -system-zlib"
 			" -nomake examples"
 			" -nomake tests"
 			" {extraArgs}"
@@ -90,7 +93,7 @@
 
 		"variables" : {
 
-			"extraArgs" : "-no-freetype QMAKE_APPLE_DEVICE_ARCHS=arm64",
+			"extraArgs" : "-no-freetype",
 
 		},
 
