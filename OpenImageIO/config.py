@@ -2,7 +2,8 @@
 
 	"downloads" : [
 
-		"https://github.com/OpenImageIO/oiio/archive/refs/tags/v2.5.10.1.tar.gz"
+		# "https://github.com/OpenImageIO/oiio/archive/refs/tags/v2.5.16.0.tar.gz"
+		"https://github.com/AcademySoftwareFoundation/OpenImageIO/archive/refs/tags/v3.0.1.0.tar.gz"
 
 	],
 
@@ -14,25 +15,39 @@
 
 	"environment" : {
 
-		"PATH" : "/usr/local/opt/openimageio/bin:$PATH",
-		"LD_LIBRARY_PATH" : "/usr/local/opt/openimageio/lib:$LD_LIBRARY_PATH"
+		"PATH" : "{buildDir}/bin:$PATH",
+		"LD_LIBRARY_PATH" : "{buildDir}/lib:$LD_LIBRARY_PATH",
 
 	},
 
 	"commands" : [
 
-		# Skip building and directly use the Homebrew installation
-		"echo 'Using Homebrew-installed OpenImageIO'",
-
-		# Ensure required directories exist in the expected build directory
-		# "mkdir -p {buildDir}/include",
-		# "mkdir -p {buildDir}/lib",
-		# "mkdir -p {buildDir}/bin",
-
-		# Symlink Homebrew-installed OpenImageIO files to {buildDir}
-		"ln -sf /usr/local/opt/openimageio/include/OpenImageIO {buildDir}/include/OpenImageIO",
-		"ln -sf /usr/local/opt/openimageio/lib/libOpenImageIO* {buildDir}/lib/",
-		"ln -sf /usr/local/opt/openimageio/bin/* {buildDir}/bin/"
+		"mkdir gafferBuild",
+		"cd gafferBuild &&"
+			" cmake"
+			" -D CMAKE_CXX_STANDARD=17"
+			" -D CMAKE_INSTALL_PREFIX={buildDir}"
+			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
+			" -D CMAKE_PREFIX_PATH={buildDir}"
+			" -D USE_FFMPEG=NO"
+			" -D USE_GIF=0"
+			" -D USE_OPENVDB=NO"
+			" -D USE_PYTHON=YES"
+			" -D USE_EXTERNAL_PUGIXML=YES"
+			" -D BUILD_MISSING_FMT=NO"
+			" -D OIIO_BUILD_TESTS=NO"
+			" -D OIIO_DOWNLOAD_MISSING_TESTDATA=NO"
+			" -D PYTHON_VERSION={pythonMajorVersion}"
+			" -D Python_ROOT_DIR={buildDir}"
+			" -D Python_FIND_STRATEGY=LOCATION"
+			# These next two disable `iv`. This fails to
+			# build on Mac due to OpenGL deprecations, and
+			# we've never packaged it anyway.
+			" -D USE_OPENGL=NO"
+			" -D USE_QT=NO"
+			" ..",
+		"cd gafferBuild && make install -j {jobs} VERBOSE=1",
+		"{extraCommands}",
 
 	],
 
@@ -50,7 +65,7 @@
 		"include/OpenImageIO",
 		"lib/libOpenImageIO*{sharedLibraryExtension}*",
 
-		"doc/openimageio.pdf"
+		"doc/openimageio.pdf",
 
 	],
 
@@ -58,11 +73,10 @@
 
 		"variables" : {
 
-			"extraCommands" : "ln -sf /usr/local/opt/openimageio/lib/python{pythonVersion}/site-packages/OpenImageIO {pythonLibDir}/python{pythonVersion}/site-packages/OpenImageIO"
+			"extraCommands" : "mv {buildDir}/lib/python{pythonVersion}/site-packages/OpenImageIO {pythonLibDir}/python{pythonVersion}/site-packages/OpenImageIO"
 
-		}
+		},
 
-	}
+	},
 
 }
-
