@@ -82,468 +82,505 @@ permutations of the build.
   based on the current variant of another project specified by `ProjectName`.
 """
 
-def __compilerRoot() :
 
-	compiler = shutil.which( "g++" )
-	binDir = os.path.dirname( compiler )
-	return os.path.dirname( binDir )
+def __compilerRoot():
 
-def __projects() :
+    compiler = shutil.which("g++")
+    binDir = os.path.dirname(compiler)
+    return os.path.dirname(binDir)
 
-	configFiles = glob.glob( "*/config.py" )
-	return sorted( [ os.path.split( f )[0] for f in configFiles ] )
 
-def __decompress( archive, cleanup = False ) :
+def __projects():
 
-	if os.path.splitext( archive )[1] == ".zip" :
-		with zipfile.ZipFile( archive ) as f :
-			for info in f.infolist() :
-				extracted = f.extract( info.filename )
-				os.chmod( extracted, info.external_attr >> 16 )
-			files = f.namelist()
-	elif archive.endswith( ".tar.xz" ) :
-		## \todo When we eventually move to Python 3, we can use
-		# the `tarfile` module for this too.
-		command = "tar -xvf {archive}".format( archive=archive )
-		sys.stderr.write( command + "\n" )
-		files = subprocess.check_output( command, stderr=subprocess.STDOUT, shell = True, universal_newlines = True )
-		files = [ f for f in files.split( "\n" ) if f ]
-		files = [ f[2:] if f.startswith( "x " ) else f for f in files ]
-	else :
-		with tarfile.open( archive, "r:*" ) as f :
-			f.extractall()
-			files = f.getnames()
+    configFiles = glob.glob("*/config.py")
+    return sorted([os.path.split(f)[0] for f in configFiles])
 
-	if cleanup :
-		os.unlink( archive )
 
-	dirs = { f.split( "/" )[0] for f in files }
-	if len( dirs ) == 1 :
-		# Well behaved archive with single top-level
-		# directory.
-		return next( iter( dirs ) )
-	else :
-		# Badly behaved archive
-		return "./"
+def __decompress(archive, cleanup=False):
 
-def __loadJSON( project ) :
+    if os.path.splitext(archive)[1] == ".zip":
+        with zipfile.ZipFile(archive) as f:
+            for info in f.infolist():
+                extracted = f.extract(info.filename)
+                os.chmod(extracted, info.external_attr >> 16)
+            files = f.namelist()
+    elif archive.endswith(".tar.xz"):
+        ## \todo When we eventually move to Python 3, we can use
+        # the `tarfile` module for this too.
+        command = "tar -xvf {archive}".format(archive=archive)
+        sys.stderr.write(command + "\n")
+        files = subprocess.check_output(
+            command, stderr=subprocess.STDOUT, shell=True, universal_newlines=True
+        )
+        files = [f for f in files.split("\n") if f]
+        files = [f[2:] if f.startswith("x ") else f for f in files]
+    else:
+        with tarfile.open(archive, "r:*") as f:
+            f.extractall()
+            files = f.getnames()
 
-	# Load file. Really we want to use JSON to
-	# enforce a "pure data" methodology, but JSON
-	# doesn't allow comments so we use Python
-	# instead. Because we use `eval` and don't expose
-	# any modules, there's not much beyond JSON
-	# syntax that we can use in practice.
+    if cleanup:
+        os.unlink(archive)
 
-	with open( project + "/config.py" ) as f :
-		config = f.read()
+    dirs = {f.split("/")[0] for f in files}
+    if len(dirs) == 1:
+        # Well behaved archive with single top-level
+        # directory.
+        return next(iter(dirs))
+    else:
+        # Badly behaved archive
+        return "./"
 
-	return eval( config )
 
-def __applyConfigOverrides( config, key ) :
+def __loadJSON(project):
 
-	overrides = config.get( key, {} )
-	for key, value in overrides.items() :
+    # Load file. Really we want to use JSON to
+    # enforce a "pure data" methodology, but JSON
+    # doesn't allow comments so we use Python
+    # instead. Because we use `eval` and don't expose
+    # any modules, there's not much beyond JSON
+    # syntax that we can use in practice.
 
-		if isinstance( value, dict ) and key in config :
-			config[key].update( value )
-		else :
-			config[key] = value
+    with open(project + "/config.py") as f:
+        config = f.read()
 
-def __substitute( config, variables, forDigest = False ) :
+    return eval(config)
 
-	if forDigest :
-		# These shouldn't affect the output of the build, so
-		# hold them constant when computing a digest.
-		variables = variables.copy()
-		variables.update( { "buildDir" : "{buildDir}", "jobs" : "{jobs}" } )
 
-	def substituteWalk( o ) :
+def __applyConfigOverrides(config, key):
 
-		if isinstance( o, dict ) :
-			return { k : substituteWalk( v ) for k, v in o.items() }
-		elif isinstance( o, list ) :
-			return [ substituteWalk( x ) for x in o ]
-		elif isinstance( o, tuple ) :
-			return tuple( substituteWalk( x ) for x in o )
-		elif isinstance( o, str ) :
-			while True :
-				s = o.format( **variables )
-				if s == o :
-					return s
-				else :
-					o = s
-		else :
-			return o
+    overrides = config.get(key, {})
+    for key, value in overrides.items():
 
-	return substituteWalk( config )
+        if isinstance(value, dict) and key in config:
+            config[key].update(value)
+        else:
+            config[key] = value
 
-def __appendHash( hash, value ) :
 
-	hash.update( str( value ).encode( "utf-8" ) )
+def __substitute(config, variables, forDigest=False):
 
-def __updateDigest( project, config ) :
+    if forDigest:
+        # These shouldn't affect the output of the build, so
+        # hold them constant when computing a digest.
+        variables = variables.copy()
+        variables.update({"buildDir": "{buildDir}", "jobs": "{jobs}"})
 
-	# This needs to account for everything that
-	# `__buildProject()` is sensitive to.
+    def substituteWalk(o):
 
-	__appendHash( config["digest"], config["downloads"] )
-	__appendHash( config["digest"], config.get( "license" ) )
-	__appendHash( config["digest"], config.get( "environment" ) )
-	__appendHash( config["digest"], config.get( "commands" ) )
-	__appendHash( config["digest"], config.get( "symbolicLinks" ) )
-	for e in config.get( "requiredEnvironment", [] ) :
-		__appendHash( config["digest"], os.environ.get( e, "" ) )
+        if isinstance(o, dict):
+            return {k: substituteWalk(v) for k, v in o.items()}
+        elif isinstance(o, list):
+            return [substituteWalk(x) for x in o]
+        elif isinstance(o, tuple):
+            return tuple(substituteWalk(x) for x in o)
+        elif isinstance(o, str):
+            while True:
+                s = o.format(**variables)
+                if s == o:
+                    return s
+                else:
+                    o = s
+        else:
+            return o
 
-	for patch in glob.glob( "{}/patches/*.patch".format( project ) ) :
-		with open( patch ) as f :
-			__appendHash( config["digest"], f.read() )
+    return substituteWalk(config)
 
-def __loadConfigs( variables, variants ) :
 
-	# Load configs and apply variants and platform overrides.
+def __appendHash(hash, value):
 
-	configs = {}
-	for project in __projects() :
-		config = __loadJSON( project )
-		if project in variants :
-			__applyConfigOverrides( config, "variant:{}".format( variants[project] ) )
-		for variantProject, variant in variants.items() :
-			__applyConfigOverrides( config, "variant:{}:{}".format( variantProject, variant ) )
-		__applyConfigOverrides( config, "platform:macos" if sys.platform == "darwin" else "platform:linux" )
-		if config.get( "enabled", True ) :
-			configs[project] = config
+    hash.update(str(value).encode("utf-8"))
 
-	# Walk dependency tree to compute digests and
-	# apply substitutions.
 
-	visited = set()
-	def walk( project, configs ) :
+def __updateDigest(project, config):
 
-		if project in visited :
-			return
+    # This needs to account for everything that
+    # `__buildProject()` is sensitive to.
 
-		projectConfig = configs[project]
-		projectConfig["digest"] = hashlib.md5()
+    __appendHash(config["digest"], config["downloads"])
+    __appendHash(config["digest"], config.get("license"))
+    __appendHash(config["digest"], config.get("environment"))
+    __appendHash(config["digest"], config.get("commands"))
+    __appendHash(config["digest"], config.get("symbolicLinks"))
+    for e in config.get("requiredEnvironment", []):
+        __appendHash(config["digest"], os.environ.get(e, ""))
 
-		# Visit dependencies to gather their public variables
-		# and apply their digest to this project.
+    for patch in glob.glob("{}/patches/*.patch".format(project)):
+        with open(patch) as f:
+            __appendHash(config["digest"], f.read())
 
-		projectVariables = variables.copy()
-		for dependency in projectConfig.get( "dependencies", [] ) :
-			walk( dependency, configs )
-			__appendHash( projectConfig["digest"], configs[dependency]["digest"].hexdigest() )
-			projectVariables.update( configs[dependency].get( "publicVariables", {} ) )
 
-		# Apply substitutions and update digest.
+def __loadConfigs(variables, variants):
 
-		projectVariables.update( projectConfig.get( "publicVariables", {} ) )
-		projectVariables.update( projectConfig.get( "variables", {} ) )
+    # Load configs and apply variants and platform overrides.
 
-		projectConfig = __substitute( projectConfig, projectVariables, forDigest = True )
-		__updateDigest( project, projectConfig )
-		configs[project] = __substitute( projectConfig, projectVariables, forDigest = False )
+    configs = {}
+    for project in __projects():
+        config = __loadJSON(project)
+        if project in variants:
+            __applyConfigOverrides(config, "variant:{}".format(variants[project]))
+        for variantProject, variant in variants.items():
+            __applyConfigOverrides(
+                config, "variant:{}:{}".format(variantProject, variant)
+            )
+        __applyConfigOverrides(
+            config, "platform:macos" if sys.platform == "darwin" else "platform:linux"
+        )
+        if config.get("enabled", True):
+            configs[project] = config
 
-		visited.add( project )
+    # Walk dependency tree to compute digests and
+    # apply substitutions.
 
-	for project in configs.keys() :
-		walk( project, configs )
+    visited = set()
 
-	return configs
+    def walk(project, configs):
 
-def __preserveCurrentDirectory( f ) :
+        if project in visited:
+            return
 
-	@functools.wraps( f )
-	def decorated( *args, **kw ) :
-		d = os.getcwd()
-		try :
-			return f( *args, **kw )
-		finally :
-			os.chdir( d )
+        projectConfig = configs[project]
+        projectConfig["digest"] = hashlib.md5()
 
-	return decorated
+        # Visit dependencies to gather their public variables
+        # and apply their digest to this project.
+
+        projectVariables = variables.copy()
+        for dependency in projectConfig.get("dependencies", []):
+            walk(dependency, configs)
+            __appendHash(
+                projectConfig["digest"], configs[dependency]["digest"].hexdigest()
+            )
+            projectVariables.update(configs[dependency].get("publicVariables", {}))
+
+        # Apply substitutions and update digest.
+
+        projectVariables.update(projectConfig.get("publicVariables", {}))
+        projectVariables.update(projectConfig.get("variables", {}))
+
+        projectConfig = __substitute(projectConfig, projectVariables, forDigest=True)
+        __updateDigest(project, projectConfig)
+        configs[project] = __substitute(
+            projectConfig, projectVariables, forDigest=False
+        )
+
+        visited.add(project)
+
+    for project in configs.keys():
+        walk(project, configs)
+
+    return configs
+
+
+def __preserveCurrentDirectory(f):
+
+    @functools.wraps(f)
+    def decorated(*args, **kw):
+        d = os.getcwd()
+        try:
+            return f(*args, **kw)
+        finally:
+            os.chdir(d)
+
+    return decorated
 
 
 def _perform_cleanup_and_decompression(workingDir, cleanup, archives):
-	if os.path.exists(workingDir) :
-		shutil.rmtree(workingDir)
-	os.makedirs(workingDir)
-	os.chdir(workingDir)
-	decompressedArchives = [__decompress("../../" + a, cleanup) for a in archives]
-	os.chdir(config.get("workingDir", decompressedArchives[0]))
+    if os.path.exists(workingDir):
+        shutil.rmtree(workingDir)
+    os.makedirs(workingDir)
+    os.chdir(workingDir)
+    decompressedArchives = [__decompress("../../" + a, cleanup) for a in archives]
+    os.chdir(config.get("workingDir", decompressedArchives[0]))
 
 
 @__preserveCurrentDirectory
-def __buildProject( project, config, buildDir, cleanup ) :
+def __buildProject(project, config, buildDir, cleanup):
 
-	sys.stderr.write( "Building project {}\n".format( project ) )
+    sys.stderr.write("Building project {}\n".format(project))
 
-	archiveDir = project + "/archives"
-	if not os.path.exists( archiveDir ) :
-		os.makedirs( archiveDir )
+    archiveDir = project + "/archives"
+    if not os.path.exists(archiveDir):
+        os.makedirs(archiveDir)
 
-	archives = []
-	for download in config["downloads"] :
+    archives = []
+    for download in config["downloads"]:
 
-		archivePath = os.path.join( archiveDir, os.path.basename( download ) )
-		archives.append( archivePath )
+        archivePath = os.path.join(archiveDir, os.path.basename(download))
+        archives.append(archivePath)
 
-		if os.path.exists( archivePath ) :
-			continue
+        if os.path.exists(archivePath):
+            continue
 
-		downloadCommand = "curl -L {0} > {1}".format( download, archivePath )
-		sys.stderr.write( downloadCommand + "\n" )
-		subprocess.check_call( downloadCommand, shell = True )
+        downloadCommand = "curl -L {0} > {1}".format(download, archivePath)
+        sys.stderr.write(downloadCommand + "\n")
+        subprocess.check_call(downloadCommand, shell=True)
 
-	workingDir = project + "/working"
-	
-	if not args.skip_decompress:
-	
-		if os.path.exists( workingDir ) :
-			shutil.rmtree( workingDir )
-		os.makedirs( workingDir )
-		os.chdir( workingDir )
-		decompressedArchives = [ __decompress( "../../" + a, cleanup ) for a in archives ]
-		os.chdir( config.get( "workingDir", decompressedArchives[0] ) )
-	else:
-		try:
-			entries = os.listdir(workingDir)
-			# Filter out directories
-			subdirs = [entry for entry in entries if os.path.isdir(os.path.join(workingDir, entry))]
-			if subdirs:
-				first_subdir = subdirs[0]
-				os.chdir(os.path.join(workingDir, first_subdir))
-				print(f"Changed directory to: {os.getcwd()}")
-			else:
-				print(f"No subdirectories found in {workingDir}.")
-		except FileNotFoundError:
-			_perform_cleanup_and_decompression(workingDir, cleanup, archives)
+    workingDir = project + "/working"
 
-	fullWorkingDir = os.getcwd()
+    if not args.skip_decompress:
 
-	if config["license"] is not None :
-		licenseDir = os.path.join( buildDir, "doc/licenses" )
-		licenseDest = os.path.join( licenseDir, project )
-		if not os.path.exists( licenseDir ) :
-			os.makedirs( licenseDir )
-		if os.path.isfile( config["license"] ) :
-			shutil.copy( config["license"], licenseDest )
-		else :
-			if os.path.exists( licenseDest ) :
-				shutil.rmtree( licenseDest )
-			shutil.copytree( config["license"], licenseDest )
+        if os.path.exists(workingDir):
+            shutil.rmtree(workingDir)
+        os.makedirs(workingDir)
+        os.chdir(workingDir)
+        decompressedArchives = [__decompress("../../" + a, cleanup) for a in archives]
+        os.chdir(config.get("workingDir", decompressedArchives[0]))
+    else:
+        try:
+            entries = os.listdir(workingDir)
+            # Filter out directories
+            subdirs = [
+                entry
+                for entry in entries
+                if os.path.isdir(os.path.join(workingDir, entry))
+            ]
+            if subdirs:
+                first_subdir = subdirs[0]
+                os.chdir(os.path.join(workingDir, first_subdir))
+                print(f"Changed directory to: {os.getcwd()}")
+            else:
+                print(f"No subdirectories found in {workingDir}.")
+        except FileNotFoundError:
+            _perform_cleanup_and_decompression(workingDir, cleanup, archives)
 
-	for patch in glob.glob( "../../patches/*.patch" ) :
-		subprocess.check_call( "patch -p1 < {patch}".format( patch = patch ), shell = True )
+    fullWorkingDir = os.getcwd()
 
-	environment = os.environ.copy()
-	for k, v in config.get( "environment", {} ).items() :
-		environment[k] = os.path.expandvars( v )
+    if config["license"] is not None:
+        licenseDir = os.path.join(buildDir, "doc/licenses")
+        licenseDest = os.path.join(licenseDir, project)
+        if not os.path.exists(licenseDir):
+            os.makedirs(licenseDir)
+        if os.path.isfile(config["license"]):
+            shutil.copy(config["license"], licenseDest)
+        else:
+            if os.path.exists(licenseDest):
+                shutil.rmtree(licenseDest)
+            shutil.copytree(config["license"], licenseDest)
 
-	for command in config["commands"] :
-		sys.stderr.write( command + "\n" )
-		subprocess.check_call( command, shell = True, env = environment )
+    for patch in glob.glob("../../patches/*.patch"):
+        subprocess.check_call("patch -p1 < {patch}".format(patch=patch), shell=True)
 
-	for link in config.get( "symbolicLinks", [] ) :
-		sys.stderr.write( "Linking {} to {}\n".format( link[0], link[1] ) )
-		if os.path.lexists( link[0] ) :
-			os.remove( link[0] )
-		os.symlink( link[1], link[0] )
+    environment = os.environ.copy()
+    for k, v in config.get("environment", {}).items():
+        environment[k] = os.path.expandvars(v)
 
-	if cleanup :
-		shutil.rmtree( fullWorkingDir )
+    for command in config["commands"]:
+        sys.stderr.write(command + "\n")
+        subprocess.check_call(command, shell=True, env=environment)
 
-def __checkConfigs( projects, configs ) :
+    for link in config.get("symbolicLinks", []):
+        sys.stderr.write("Linking {} to {}\n".format(link[0], link[1]))
+        if os.path.lexists(link[0]):
+            os.remove(link[0])
+        os.symlink(link[1], link[0])
 
-	def walk( project, configs ) :
+    if cleanup:
+        shutil.rmtree(fullWorkingDir)
 
-		if "url" not in configs[project] :
-			sys.stderr.write( "{} is missing the \"url\" item\n".format( project ) )
-			sys.exit( 1 )
 
-		for e in configs[project].get( "requiredEnvironment", [] ) :
-			if e not in os.environ :
-				sys.stderr.write( "{} requires environment variable {}\n".format( project, e ) )
-				sys.exit( 1 )
+def __checkConfigs(projects, configs):
 
-	for project in projects :
-		walk( project, configs )
+    def walk(project, configs):
 
-def __buildProjects( projects, configs, buildDir, cleanup ) :
+        if "url" not in configs[project]:
+            sys.stderr.write('{} is missing the "url" item\n'.format(project))
+            sys.exit(1)
 
-	digestsFilename = os.path.join( buildDir, ".digests" )
-	if os.path.isfile( digestsFilename ) :
-		with open( digestsFilename ) as digestsFile :
-			digests = json.load( digestsFile )
-	else :
-		digests = {}
+        for e in configs[project].get("requiredEnvironment", []):
+            if e not in os.environ:
+                sys.stderr.write(
+                    "{} requires environment variable {}\n".format(project, e)
+                )
+                sys.exit(1)
 
-	built = set()
-	def walk( project, configs, buildDir ) :
+    for project in projects:
+        walk(project, configs)
 
-		if project in built :
-			return
 
-		for dependency in configs[project].get( "dependencies", [] ) :
-			walk( dependency, configs, buildDir )
+def __buildProjects(projects, configs, buildDir, cleanup):
 
-		if digests.get( project ) == configs[project]["digest"].hexdigest() :
-			sys.stderr.write( "Project {} is up to date : skipping\n".format( project ) )
-		else :
-			__buildProject( project, configs[project], buildDir, cleanup )
-			digests[project] = configs[project]["digest"].hexdigest()
-			with open( digestsFilename, "w" ) as digestsFile :
-				json.dump( digests, digestsFile, indent = 4 )
+    digestsFilename = os.path.join(buildDir, ".digests")
+    if os.path.isfile(digestsFilename):
+        with open(digestsFilename) as digestsFile:
+            digests = json.load(digestsFile)
+    else:
+        digests = {}
 
-		built.add( project )
+    built = set()
 
-	for project in projects :
-		walk( project, configs, buildDir )
+    def walk(project, configs, buildDir):
 
-def __buildPackage( projects, configs, buildDir, package ) :
+        if project in built:
+            return
 
-	sys.stderr.write( "Building package {}\n".format( package ) )
+        for dependency in configs[project].get("dependencies", []):
+            walk(dependency, configs, buildDir)
 
-	visited = set()
-	files = { "doc/licenses" }
-	projectManifest = []
+        if digests.get(project) == configs[project]["digest"].hexdigest():
+            sys.stderr.write("Project {} is up to date : skipping\n".format(project))
+        else:
+            __buildProject(project, configs[project], buildDir, cleanup)
+            digests[project] = configs[project]["digest"].hexdigest()
+            with open(digestsFilename, "w") as digestsFile:
+                json.dump(digests, digestsFile, indent=4)
 
-	def walk( project, configs, buildDir ) :
+        built.add(project)
 
-		if project in visited :
-			return
+    for project in projects:
+        walk(project, configs, buildDir)
 
-		for dependency in configs[project].get( "dependencies", [] ) :
-			walk( dependency, configs, buildDir )
 
-		for pattern in configs[project].get( "manifest", [] ) :
-			for f in glob.glob( os.path.join( buildDir, pattern ) ) :
-				files.add( os.path.relpath( f, buildDir ) )
+def __buildPackage(projects, configs, buildDir, package):
 
-		m = {
-			"name" : project,
-			"url" : configs[project]["url"],
-		}
-		if "credit" in configs[project] :
-			m["credit"] = configs[project]["credit"]
-		if configs[project]["license"] :
-			m["license"] = "./" + project
-		projectManifest.append( m )
+    sys.stderr.write("Building package {}\n".format(package))
 
-		visited.add( project )
+    visited = set()
+    files = {"doc/licenses"}
+    projectManifest = []
 
-	for project in projects :
-		walk( project, configs, buildDir )
+    def walk(project, configs, buildDir):
 
-	projectManifest.sort( key = operator.itemgetter( "name" ) )
-	with open( os.path.join( buildDir, "doc", "licenses", "manifest.json" ), "w" ) as file :
-		json.dump( projectManifest, file, indent = 4 )
+        if project in visited:
+            return
 
-	rootName = os.path.basename( package ).replace( ".tar.gz", "" )
-	with tarfile.open( package, "w:gz", compresslevel = 6 ) as file :
-		for m in files :
-			file.add( os.path.join( buildDir, m ), arcname = os.path.join( rootName, m ) )
+        for dependency in configs[project].get("dependencies", []):
+            walk(dependency, configs, buildDir)
+
+        for pattern in configs[project].get("manifest", []):
+            for f in glob.glob(os.path.join(buildDir, pattern)):
+                files.add(os.path.relpath(f, buildDir))
+
+        m = {
+            "name": project,
+            "url": configs[project]["url"],
+        }
+        if "credit" in configs[project]:
+            m["credit"] = configs[project]["credit"]
+        if configs[project]["license"]:
+            m["license"] = "./" + project
+        projectManifest.append(m)
+
+        visited.add(project)
+
+    for project in projects:
+        walk(project, configs, buildDir)
+
+    projectManifest.sort(key=operator.itemgetter("name"))
+    with open(os.path.join(buildDir, "doc", "licenses", "manifest.json"), "w") as file:
+        json.dump(projectManifest, file, indent=4)
+
+    rootName = os.path.basename(package).replace(".tar.gz", "")
+    with tarfile.open(package, "w:gz", compresslevel=6) as file:
+        for m in files:
+            file.add(os.path.join(buildDir, m), arcname=os.path.join(rootName, m))
+
 
 def _get_sdk_path():
     try:
-        sdk_path = subprocess.check_output(
-            ["xcrun", "--sdk", "macosx", "--show-sdk-path"]
-        ).decode().strip()
+        sdk_path = (
+            subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"])
+            .decode()
+            .strip()
+        )
         if not os.path.exists(sdk_path):
             raise RuntimeError(f"SDK path does not exist: {sdk_path}")
         return sdk_path
     except subprocess.CalledProcessError as e:
         raise RuntimeError("Failed to retrieve SDK path using xcrun.") from e
 
+
 sdk_path = _get_sdk_path()
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
-	"--projects",
-	choices = __projects(),
-	nargs = "+",
-	default = None,
-	help = "The projects to build."
+    "--projects",
+    choices=__projects(),
+    nargs="+",
+    default=None,
+    help="The projects to build.",
 )
 
 parser.add_argument(
-	"--buildDir",
-	default = "gafferDependencies-{version}{variants}-{platform}",
-	help = "The directory to put the builds in."
+    "--buildDir",
+    default="gafferDependencies-{version}{variants}-{platform}",
+    help="The directory to put the builds in.",
 )
 
 parser.add_argument(
-	"--package",
-	default = "gafferDependencies-{version}{variants}-{platform}.tar.gz",
-	help = "The filename of the tarball package to create.",
+    "--package",
+    default="gafferDependencies-{version}{variants}-{platform}.tar.gz",
+    help="The filename of the tarball package to create.",
 )
 
 parser.add_argument(
-	"--jobs",
-	type = int,
-	default = multiprocessing.cpu_count(),
-	help = "The number of build jobs to run in parallel. Defaults to cpu_count."
+    "--jobs",
+    type=int,
+    default=multiprocessing.cpu_count(),
+    help="The number of build jobs to run in parallel. Defaults to cpu_count.",
 )
 
 parser.add_argument(
-	"--cleanup",
-	action = "store_true",
-	help = "Delete archive files after extraction and 'working' directories after each project build completes."
+    "--cleanup",
+    action="store_true",
+    help="Delete archive files after extraction and 'working' directories after each project build completes.",
 )
 
 parser.add_argument(
-	"--skip-decompress",
-	action="store_true",
-	help="Skip cleaning up and decomplressing the Qt source archives if already extracted."
+    "--skip-decompress",
+    action="store_true",
+    help="Skip cleaning up and decomplressing the Qt source archives if already extracted.",
 )
 
-for project in __projects() :
+for project in __projects():
 
-	config = __loadJSON( project )
-	variants = config.get( "variants" )
-	if not variants :
-		continue
+    config = __loadJSON(project)
+    variants = config.get("variants")
+    if not variants:
+        continue
 
-	parser.add_argument(
-		"--variant:{}".format( project ),
-		choices = variants,
-		nargs = 1,
-		default = variants[0],
-		help = "The build variant for {}.".format( project )
-	)
+    parser.add_argument(
+        "--variant:{}".format(project),
+        choices=variants,
+        nargs=1,
+        default=variants[0],
+        help="The build variant for {}.".format(project),
+    )
 
 args = parser.parse_args()
 
 variants = {}
-for key, value in vars( args ).items() :
-	if key.startswith( "variant:" ) :
-		variants[key[8:]] = value[0]
+for key, value in vars(args).items():
+    if key.startswith("variant:"):
+        variants[key[8:]] = value[0]
 
 variables = {
-	"buildDir" : os.path.abspath( args.buildDir ),
-	"jobs" : args.jobs,
-	"path" : os.environ["PATH"],
-	"version" : __version,
-	"platform" : "macos" if sys.platform == "darwin" else "linux",
-	"sharedLibraryExtension" : ".dylib" if sys.platform == "darwin" else ".so",
-	"c++Standard" : "17",
-	"compilerRoot" : __compilerRoot(),
-	"variants" : "".join( "-{}{}".format( key, variants[key] ) for key in sorted( variants.keys() ) ),
-	"sdkPath": sdk_path,
+    "buildDir": os.path.abspath(args.buildDir),
+    "jobs": args.jobs,
+    "path": os.environ["PATH"],
+    "version": __version,
+    "platform": "macos" if sys.platform == "darwin" else "linux",
+    "sharedLibraryExtension": ".dylib" if sys.platform == "darwin" else ".so",
+    "c++Standard": "17",
+    "compilerRoot": __compilerRoot(),
+    "variants": "".join(
+        "-{}{}".format(key, variants[key]) for key in sorted(variants.keys())
+    ),
+    "sdkPath": sdk_path,
 }
 
-configs = __loadConfigs( variables, variants )
-if args.projects is None :
-	# We don't default to everything in `__projects()`,
-	# because projects may have been disabled based on
-	# platform/variant.
-	args.projects = sorted( configs.keys() )
+configs = __loadConfigs(variables, variants)
+if args.projects is None:
+    # We don't default to everything in `__projects()`,
+    # because projects may have been disabled based on
+    # platform/variant.
+    args.projects = sorted(configs.keys())
 
-__checkConfigs( args.projects, configs )
+__checkConfigs(args.projects, configs)
 
-buildDir = variables["buildDir"].format( **variables )
-__buildProjects( args.projects, configs, buildDir, args.cleanup )
+buildDir = variables["buildDir"].format(**variables)
+__buildProjects(args.projects, configs, buildDir, args.cleanup)
 
-if args.package :
-	pass
-	# __buildPackage( args.projects, configs, buildDir, args.package.format( **variables ) )
+if args.package:
+    pass
+    # __buildPackage( args.projects, configs, buildDir, args.package.format( **variables ) )
