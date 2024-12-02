@@ -263,6 +263,16 @@ def __preserveCurrentDirectory( f ) :
 
 	return decorated
 
+
+def _perform_cleanup_and_decompression(workingDir, cleanup, archives):
+	if os.path.exists(workingDir) :
+		shutil.rmtree(workingDir)
+	os.makedirs(workingDir)
+	os.chdir(workingDir)
+	decompressedArchives = [__decompress("../../" + a, cleanup) for a in archives]
+	os.chdir(config.get("workingDir", decompressedArchives[0]))
+
+
 @__preserveCurrentDirectory
 def __buildProject( project, config, buildDir, cleanup ) :
 
@@ -286,14 +296,30 @@ def __buildProject( project, config, buildDir, cleanup ) :
 		subprocess.check_call( downloadCommand, shell = True )
 
 	workingDir = project + "/working"
-	if os.path.exists( workingDir ) :
-		shutil.rmtree( workingDir )
-	os.makedirs( workingDir )
-	os.chdir( workingDir )
-	fullWorkingDir = os.getcwd()
+	
+	if not args.skip_decompress:
+	
+		if os.path.exists( workingDir ) :
+			shutil.rmtree( workingDir )
+		os.makedirs( workingDir )
+		os.chdir( workingDir )
+		decompressedArchives = [ __decompress( "../../" + a, cleanup ) for a in archives ]
+		os.chdir( config.get( "workingDir", decompressedArchives[0] ) )
+	else:
+		try:
+			entries = os.listdir(workingDir)
+			# Filter out directories
+			subdirs = [entry for entry in entries if os.path.isdir(os.path.join(workingDir, entry))]
+			if subdirs:
+				first_subdir = subdirs[0]
+				os.chdir(os.path.join(workingDir, first_subdir))
+				print(f"Changed directory to: {os.getcwd()}")
+			else:
+				print(f"No subdirectories found in {workingDir}.")
+		except FileNotFoundError:
+			_perform_cleanup_and_decompression(workingDir, cleanup, archives)
 
-	decompressedArchives = [ __decompress( "../../" + a, cleanup ) for a in archives ]
-	os.chdir( config.get( "workingDir", decompressedArchives[0] ) )
+	fullWorkingDir = os.getcwd()
 
 	if config["license"] is not None :
 		licenseDir = os.path.join( buildDir, "doc/licenses" )
@@ -418,6 +444,18 @@ def __buildPackage( projects, configs, buildDir, package ) :
 		for m in files :
 			file.add( os.path.join( buildDir, m ), arcname = os.path.join( rootName, m ) )
 
+def _get_sdk_path():
+    try:
+        sdk_path = subprocess.check_output(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"]
+        ).decode().strip()
+        if not os.path.exists(sdk_path):
+            raise RuntimeError(f"SDK path does not exist: {sdk_path}")
+        return sdk_path
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError("Failed to retrieve SDK path using xcrun.") from e
+
+sdk_path = _get_sdk_path()
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
@@ -453,6 +491,12 @@ parser.add_argument(
 	help = "Delete archive files after extraction and 'working' directories after each project build completes."
 )
 
+parser.add_argument(
+	"--skip-decompress",
+	action="store_true",
+	help="Skip cleaning up and decomplressing the Qt source archives if already extracted."
+)
+
 for project in __projects() :
 
 	config = __loadJSON( project )
@@ -485,6 +529,7 @@ variables = {
 	"c++Standard" : "17",
 	"compilerRoot" : __compilerRoot(),
 	"variants" : "".join( "-{}{}".format( key, variants[key] ) for key in sorted( variants.keys() ) ),
+	"sdkPath": sdk_path,
 }
 
 configs = __loadConfigs( variables, variants )
@@ -500,4 +545,5 @@ buildDir = variables["buildDir"].format( **variables )
 __buildProjects( args.projects, configs, buildDir, args.cleanup )
 
 if args.package :
-	__buildPackage( args.projects, configs, buildDir, args.package.format( **variables ) )
+	pass
+	# __buildPackage( args.projects, configs, buildDir, args.package.format( **variables ) )
