@@ -21,7 +21,7 @@
 	},
 
 	"commands" : [
-
+		"{buildDir}/bin/python -m pip install setuptools",
 		"{buildDir}/bin/python setup.py install {extraArgs} --root / --prefix {buildDir} --install-lib {buildDir}/python",
 
 	],
