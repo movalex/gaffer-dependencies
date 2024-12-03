@@ -15,7 +15,6 @@
 		"cd build &&"
 			" cmake"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" ..",
 		"cd build && make -j {jobs} && make install",
 

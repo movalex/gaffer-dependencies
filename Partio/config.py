@@ -18,7 +18,6 @@
 		"cd build && cmake"
 			" -D CMAKE_CXX_STANDARD={c++Standard}"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" ..",
 
 		"cd build && make clean && make VERBOSE=1 -j {jobs} && make install",

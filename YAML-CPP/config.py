@@ -16,7 +16,6 @@
 		"cd build &&"
 			" cmake"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" -D CMAKE_BUILD_TYPE=Release"
 			" -D BUILD_SHARED_LIBS=ON"
 			" -D YAML_CPP_BUILD_TOOLS=OFF"

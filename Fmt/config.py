@@ -16,7 +16,6 @@
 		"cd build && "
 			" cmake"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" -D BUILD_SHARED_LIBS=ON"
 			" -D FMT_TEST=OFF "
 			" ..",

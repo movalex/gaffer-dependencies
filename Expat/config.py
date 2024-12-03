@@ -16,7 +16,6 @@
 		"cd build &&"
 			" cmake"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" -D CMAKE_BUILD_TYPE=Release"
 			" -D EXPAT_BUILD_TOOLS=OFF"
 			" -D EXPAT_BUILD_EXAMPLES=OFF"
