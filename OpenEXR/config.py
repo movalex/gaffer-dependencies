@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/AcademySoftwareFoundation/openexr/archive/refs/tags/v3.1.13.tar.gz"
+		"https://github.com/AcademySoftwareFoundation/openexr/archive/refs/tags/v3.3.2.tar.gz"
 
 	],
 
@@ -25,8 +25,6 @@
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
 			# OpenEXR's CMake setup uses GNUInstallDirs, which unhelpfully
 			# puts the libraries in `lib64`. Coax them back.
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
-			" -D CMAKE_PREFIX_PATH={buildDir}"
 			" ."
 		,
 

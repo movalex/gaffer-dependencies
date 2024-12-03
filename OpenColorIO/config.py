@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.2.1.tar.gz",
+		"https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.4.0.tar.gz",
 		"https://github.com/imageworks/OpenColorIO-Configs/archive/v1.0_r2.tar.gz",
 
 	],
@@ -26,7 +26,6 @@
 		"cd build && cmake"
 			" -D CMAKE_CXX_STANDARD={c++Standard}"
 		 	" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" -D CMAKE_PREFIX_PATH={buildDir}"
 			" -D Python_ROOT_DIR={buildDir}"
 			" -D Python_FIND_STRATEGY=LOCATION"

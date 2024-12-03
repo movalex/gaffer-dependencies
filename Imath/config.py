@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.11.tar.gz"
+		"https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.12.tar.gz"
 
 	],
 
@@ -25,8 +25,6 @@
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
 			# OpenEXR's CMake setup uses GNUInstallDirs, which unhelpfully
 			# puts the libraries in `lib64`. Coax them back.
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
-			" -D CMAKE_PREFIX_PATH={buildDir}"
 			" -D PYTHON=ON"
 			" -D Boost_NO_SYSTEM_PATHS=TRUE"
 			" -D Boost_NO_BOOST_CMAKE=TRUE"

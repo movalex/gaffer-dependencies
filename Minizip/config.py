@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/zlib-ng/minizip-ng/archive/refs/tags/3.0.9.tar.gz",
+		"https://github.com/zlib-ng/minizip-ng/archive/refs/tags/4.0.7.tar.gz",
 
 	],
 
@@ -16,7 +16,6 @@
 		"cd build &&"
 			" cmake"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" -D CMAKE_BUILD_TYPE=Release"
 			" -D BUILD_SHARED_LIBS=OFF"
 			# Arguments taken from OpenColorIO's
