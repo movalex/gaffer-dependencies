@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/ImageEngine/cortex/archive/refs/tags/10.5.10.0.tar.gz"
+		"https://github.com/ImageEngine/cortex/archive/refs/tags/10.5.11.0.tar.gz"
 
 	],
 
@@ -53,6 +53,7 @@
 			" OIIO_INCLUDE_PATH={buildDir}/include"
 			" OSL_INCLUDE_PATH={buildDir}/include"
 			" BLOSC_INCLUDE_PATH={buildDir}/include"
+			" PYBIND11_INCLUDE_PATH={buildDir}/include"
 			" FREETYPE_INCLUDE_PATH={buildDir}/include/freetype2"
 			" WITH_GL=1"
 			" GLEW_INCLUDE_PATH={buildDir}/include/GL"
