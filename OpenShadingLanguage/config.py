@@ -1,4 +1,9 @@
 {
+	"git": {
+        "url": "https://github.com/AcademySoftwareFoundation/OpenImageIO.git",
+        "branch": "main",
+        "cloneDir": "OpenShadingLanguage"  # Optional: directory to clone into
+    },
 
 	"downloads" : [
 
@@ -6,7 +11,7 @@
 
 	],
 
-	"url" : "https://github.com/imageworks/OpenShadingLanguage",
+	"url" : "https://github.com/AcademySoftwareFoundation/OpenShadingLanguage",
 
 	"license" : "LICENSE.md",
 
@@ -26,17 +31,15 @@
 	},
 
 	"commands" : [
-
-		"mkdir gafferBuild",
+		"mkdir -p gafferBuild",
 		"cd gafferBuild &&"
 			" cmake"
 			" -D CMAKE_CXX_STANDARD={c++Standard}"
+            " -D CMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang"
+            " -D CMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
-			" -D CMAKE_INSTALL_LIBDIR={buildDir}/lib"
 			" -D CMAKE_PREFIX_PATH={buildDir}"
 			" -D STOP_ON_WARNING=0"
-			" -D LLVM_STATIC=1"
-			" -D USE_BATCHED={useBatched}"
 			" -D OSL_SHADER_INSTALL_DIR={buildDir}/shaders"
 			" -D Python_ROOT_DIR={buildDir}"
 			" -D Python_FIND_STRATEGY=LOCATION"
