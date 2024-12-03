@@ -2,19 +2,19 @@
 
 	"downloads" : [
 
-		"https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2020.3.tar.gz"
+		"https://github.com/uxlfoundation/oneTBB/releases/download/v2022.0.0/oneapi-tbb-2022.0.0-mac.tgz"
 
 	],
 
 	"url" : "http://threadingbuildingblocks.org/",
 
-	"license" : "LICENSE",
+	"license" : "LICENSE.txt",
 
 	"commands" : [
-
-		"make -j {jobs} stdver=c++{c++Standard}",
+        
 		"mkdir -p {buildDir}/include",
 		"cp -r include/tbb {buildDir}/include",
+		"cp -r include/oneapi {buildDir}/include",
 		"mkdir -p {buildDir}/lib",
 		"{installLibsCommand}",
 
@@ -53,7 +53,7 @@
 
 		"variables" : {
 
-			"installLibsCommand" : "cp build/macos_*_release/*.dylib {buildDir}/lib",
+			"installLibsCommand" : "cp lib/*.dylib {buildDir}/lib",
 
 		},
 
