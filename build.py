@@ -13,6 +13,7 @@ import shutil
 import sys
 import tarfile
 import zipfile
+from pathlib import Path
 
 __version = "10.0.0"
 
@@ -211,9 +212,7 @@ def __updateDigest(project, config):
 
 
 def __loadConfigs(variables, variants):
-
     # Load configs and apply variants and platform overrides.
-
     configs = {}
     for project in __projects():
         config = __loadJSON(project)
@@ -285,99 +284,128 @@ def __preserveCurrentDirectory(f):
     return decorated
 
 
-def _perform_cleanup_and_decompression(workingDir, cleanup, archives):
-    if os.path.exists(workingDir):
-        shutil.rmtree(workingDir)
-    os.makedirs(workingDir)
-    os.chdir(workingDir)
-    decompressedArchives = [__decompress("../../" + a, cleanup) for a in archives]
-    os.chdir(config.get("workingDir", decompressedArchives[0]))
-
-
 @__preserveCurrentDirectory
 def __buildProject(project, config, buildDir, cleanup):
-
     sys.stderr.write("Building project {}\n".format(project))
 
-    archiveDir = project + "/archives"
-    if not os.path.exists(archiveDir):
-        os.makedirs(archiveDir)
+    if 'git' in config:
+        # Handle Git cloning
+        workingDir = os.path.join(project, "working")
+        if not os.path.exists(workingDir):
+            os.makedirs(workingDir)
 
-    archives = []
-    for download in config["downloads"]:
+        cloneDir = config['git'].get(
+            'cloneDir', os.path.basename(config['git']['url']).replace('.git', '')
+        )
 
-        archivePath = os.path.join(archiveDir, os.path.basename(download))
-        archives.append(archivePath)
-
-        if os.path.exists(archivePath):
-            continue
-
-        downloadCommand = "curl -L {0} > {1}".format(download, archivePath)
-        sys.stderr.write(downloadCommand + "\n")
-        subprocess.check_call(downloadCommand, shell=True)
-
-    workingDir = project + "/working"
-
-    if not args.skip_decompress:
-
-        if os.path.exists(workingDir):
-            shutil.rmtree(workingDir)
-        os.makedirs(workingDir)
+        repoDir = Path(workingDir, cloneDir).resolve()
         os.chdir(workingDir)
-        decompressedArchives = [__decompress("../../" + a, cleanup) for a in archives]
-        os.chdir(config.get("workingDir", decompressedArchives[0]))
+
+        git_url = config['git']['url']
+        git_branch = config['git'].get('branch', 'master')
+        git_commit = config['git'].get('commit')
+
+        if not os.path.exists(repoDir):
+            clone_command = f"git clone --recursive -b {git_branch} {git_url} {cloneDir}"
+            sys.stderr.write(clone_command + "\n")
+            subprocess.check_call(clone_command, shell=True)
+        else:
+            sys.stderr.write(f"Repository {cloneDir} already cloned. Updating repository.\n")
+            # os.chdir(cloneDir)
+            # Reset any changes and pull latest updates
+            # subprocess.check_call("git reset --hard", shell=True)
+            # subprocess.check_call("git fetch --all", shell=True)
+            # subprocess.check_call(f"git checkout {git_branch}", shell=True)
+            # subprocess.check_call("git pull", shell=True)
+            # os.chdir('..')  # Return to workingDir
+
+        os.chdir(cloneDir)  # Enter the cloned repository
+
+        if git_commit:
+            checkout_command = f"git checkout {git_commit}"
+            sys.stderr.write(checkout_command + "\n")
+            subprocess.check_call(checkout_command, shell=True)
+
+        fullWorkingDir = os.getcwd()
+
     else:
-        try:
-            entries = os.listdir(workingDir)
-            # Filter out directories
-            subdirs = [
-                entry
-                for entry in entries
-                if os.path.isdir(os.path.join(workingDir, entry))
-            ]
+        # Existing download and decompress logic
+        archiveDir = os.path.join(project, "archives")
+        if not os.path.exists(archiveDir):
+            os.makedirs(archiveDir)
+
+        archives = []
+        for download in config["downloads"]:
+            archivePath = os.path.join(archiveDir, os.path.basename(download))
+            archives.append(archivePath)
+
+            if os.path.exists(archivePath):
+                continue
+
+            downloadCommand = f"curl -L {download} > {archivePath}"
+            sys.stderr.write(downloadCommand + "\n")
+            subprocess.check_call(downloadCommand, shell=True)
+
+        workingDir = os.path.join(project, "working")
+        decompress = not args.skip_decompress or not os.path.exists(workingDir) or not os.listdir(workingDir)
+
+        if decompress:
+            if os.path.exists(workingDir):
+                shutil.rmtree(workingDir)
+            os.makedirs(workingDir)
+            os.chdir(workingDir)
+            decompressedArchives = [__decompress(os.path.join("..", "..", a), cleanup) for a in archives]
+            os.chdir(config.get("workingDir", decompressedArchives[0]))
+        else:
+            os.chdir(workingDir)
+            entries = os.listdir()
+            subdirs = [entry for entry in entries if os.path.isdir(entry)]
             if subdirs:
-                first_subdir = subdirs[0]
-                os.chdir(os.path.join(workingDir, first_subdir))
+                os.chdir(subdirs[0])
                 print(f"Changed directory to: {os.getcwd()}")
             else:
                 print(f"No subdirectories found in {workingDir}.")
-        except FileNotFoundError:
-            _perform_cleanup_and_decompression(workingDir, cleanup, archives)
 
-    fullWorkingDir = os.getcwd()
+        fullWorkingDir = os.getcwd()
 
-    if config["license"] is not None:
+    # Common steps after obtaining the source code
+    license = config.get("license")
+    if license is not None:
         licenseDir = os.path.join(buildDir, "doc/licenses")
         licenseDest = os.path.join(licenseDir, project)
         if not os.path.exists(licenseDir):
             os.makedirs(licenseDir)
-        if os.path.isfile(config["license"]):
-            shutil.copy(config["license"], licenseDest)
+        if os.path.isfile(license):
+            shutil.copy(license, licenseDest)
         else:
             if os.path.exists(licenseDest):
                 shutil.rmtree(licenseDest)
             shutil.copytree(config["license"], licenseDest)
 
+    # Apply patches if any
     for patch in glob.glob("../../patches/*.patch"):
         subprocess.check_call("patch -p1 < {patch}".format(patch=patch), shell=True)
 
+    # Set up the environment
     environment = os.environ.copy()
     for k, v in config.get("environment", {}).items():
         environment[k] = os.path.expandvars(v)
 
+    # Execute build commands
     for command in config["commands"]:
         sys.stderr.write(command + "\n")
         subprocess.check_call(command, shell=True, env=environment)
 
+    # Handle symbolic links
     for link in config.get("symbolicLinks", []):
         sys.stderr.write("Linking {} to {}\n".format(link[0], link[1]))
         if os.path.lexists(link[0]):
             os.remove(link[0])
         os.symlink(link[1], link[0])
 
+    # Cleanup
     if cleanup:
         shutil.rmtree(fullWorkingDir)
-
 
 def __checkConfigs(projects, configs):
 
@@ -568,7 +596,6 @@ variables = {
     ),
     "sdkPath": sdk_path,
 }
-
 configs = __loadConfigs(variables, variants)
 if args.projects is None:
     # We don't default to everything in `__projects()`,
