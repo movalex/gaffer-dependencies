@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz"
+		"https://boostorg.jfrog.io/artifactory/main/release/1.86.0/source/boost_1_86_0.tar.gz"
 
 	],
 
@@ -18,7 +18,7 @@
 		# even though we tell it quite explicitly to use the one in {buildDir}.
 		"DYLD_FALLBACK_FRAMEWORK_PATH" : "{buildDir}/lib",
 		"LD_LIBRARY_PATH" : "{buildDir}/lib",
-		"MACOSX_DEPLOYMENT_TARGET" : "10.9",
+		"MACOSX_DEPLOYMENT_TARGET" : "14.0",
 		# Give a helping hand to find the python headers, since the bootstrap
 		# below doesn't always seem to get it right.
 		"CPLUS_INCLUDE_PATH" : "{pythonIncludeDir}",
