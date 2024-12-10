@@ -2,13 +2,13 @@
 
 	"downloads" : [
 
-		"https://github.com/fmtlib/fmt/archive/refs/tags/9.1.0.tar.gz",
+		"https://github.com/fmtlib/fmt/archive/refs/tags/11.0.2.tar.gz",
 
 	],
 
 	"url" : "https://fmt.dev",
 
-	"license" : "LICENSE.rst",
+	"license" : "LICENSE",
 
 	"commands" : [
 

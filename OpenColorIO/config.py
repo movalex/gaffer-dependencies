@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.4.0.tar.gz",
+		"https://github.com/AcademySoftwareFoundation/OpenColorIO/archive/refs/tags/v2.3.2.tar.gz",
 		"https://github.com/imageworks/OpenColorIO-Configs/archive/v1.0_r2.tar.gz",
 
 	],
@@ -29,7 +29,7 @@
 			" -D CMAKE_PREFIX_PATH={buildDir}"
 			" -D Python_ROOT_DIR={buildDir}"
 			" -D Python_FIND_STRATEGY=LOCATION"
-			" -D pystring_INCLUDE_DIR={buildDir}/include"
+			" -D pystring_INCLUDE_DIR={buildDir}/include/pystring"
 			" -D BUILD_SHARED_LIBS=ON"
 			" -D OCIO_INSTALL_EXT_PACKAGES=NONE"
 			" -D OCIO_BUILD_APPS=OFF"
@@ -42,7 +42,7 @@
 		"cd build && make clean && make VERBOSE=1 -j {jobs} && make install",
 
 		"mkdir -p {buildDir}/python",
-		"mv {buildDir}/lib*/python*/site-packages/PyOpenColorIO* {buildDir}/python",
+		"rsync -av {buildDir}/lib*/python*/site-packages/PyOpenColorIO {buildDir}/python/",
 
 		"mkdir -p {buildDir}/openColorIO",
 		"cp ../OpenColorIO-Configs-1.0_r2/nuke-default/config.ocio {buildDir}/openColorIO",

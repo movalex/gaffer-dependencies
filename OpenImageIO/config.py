@@ -2,7 +2,7 @@
 
 	"downloads" : [
 
-		"https://github.com/AcademySoftwareFoundation/OpenImageIO/archive/refs/tags/v3.0.1.0.tar.gz"
+		"https://github.com/AcademySoftwareFoundation/OpenImageIO/archive/refs/tags/v2.5.14.0.tar.gz"
 
 	],
 
@@ -16,15 +16,19 @@
 
 		"PATH" : "{buildDir}/bin:$PATH",
 		"LD_LIBRARY_PATH" : "{buildDir}/lib:$LD_LIBRARY_PATH",
+        "PKG_CONFIG_PATH": "{buildDir}/lib/pkgconfig:$PKG_CONFIG_PATH",
+		"CPPFLAGS" : "-I{buildDir}/include -I/usr/local/include",
+		"LDFLAGS" : "-L{buildDir}/lib -L/usr/local/lib",
 
 	},
 
 	"commands" : [
-
+		# "sh src/build-scripts/build_libpng.bash",
 		"mkdir gafferBuild",
 		"cd gafferBuild &&"
 			" cmake"
 			" -D CMAKE_CXX_STANDARD=17"
+            " -D CMAKE_CXX_FLAGS=-std=c++17"
 			" -D CMAKE_INSTALL_PREFIX={buildDir}"
 			" -D USE_FFMPEG=NO"
 			" -D USE_GIF=0"

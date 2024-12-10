@@ -2,15 +2,15 @@
 
 	"downloads" : [
 
-		"https://download.osgeo.org/libtiff/tiff-4.1.0.zip",
+		"https://download.osgeo.org/libtiff/tiff-4.7.0.zip",
 
 	],
 
 	"url" : "http://www.libtiff.org",
 
-	"license" : "COPYRIGHT",
+	"license" : "LICENSE.md",
 
-	"dependencies" : [ "LibJPEG-Turbo" ],
+	"dependencies" : [ "LibJPEG-Turbo", "LibWebP"],
 
 	"environment" : {
 
@@ -18,7 +18,7 @@
 		# in the Gaffer distribution and not the system
 		# libjpeg.
 		"CPPFLAGS" : "-I{buildDir}/include",
-		"LDFLAGS" : "-L{buildDir}/lib",
+		"LDFLAGS" : "-L{buildDir}/lib -L/usr/local/lib",
 
 	},
 
